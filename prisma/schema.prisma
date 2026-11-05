@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SourceType {
+  QURAN_API
+  POETRY_COLLECTION
+  TELEGRAM_CHANNEL
+  TWITTER_ACCOUNT
+  MANUAL
+}
+
+enum PostStatus {
+  DRAFT       // Discovered / scraped, waiting for review
+  APPROVED    // In queue, ready for dispatch
+  SCHEDULED   // Assigned to a specific time slot
+  PUBLISHED   // Successfully sent to channel
+  ARCHIVED    // Dismissed / ignored
+}
+
+enum ChannelTarget {
+  NATHARAT    // @natharat06
+  NASMAT      // @nasmat1448
+  BOTH        // Dispatch to both
+}
+
+model Source {
+  id            String        @id @default(cuid())
+  name          String
+  type          SourceType
+  handleOrUrl   String        // e.g., "@some_tg_channel" or "twitter_username"
+  active        Boolean       @default(true)
+  targetChannel ChannelTarget @default(BOTH)
+  createdAt     DateTime      @default(now())
+  posts         Post[]
+}
+
+model Post {
+  id             String        @id @default(cuid())
+  content        String        @db.Text
+  mediaUrl       String?       // Audio MP3 link or image link
+  isAudio        Boolean       @default(false)
+  audioTitle     String?
+  audioPerformer String?
+  status         PostStatus    @default(DRAFT)
+  targetChannel  ChannelTarget @default(BOTH)
+  scheduledFor   DateTime?
+  publishedAt    DateTime?
+  sourceId       String?
+  source         Source?       @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+}
+
+model ScheduleSlot {
+  id            String        @id @default(cuid())
+  timeSlot      String        // e.g. "05:00" (Fajr), "16:30" (Asr), "22:00" (Night)
+  contentType   SourceType?   // Optional preferred content type for this slot
+  targetChannel ChannelTarget @default(BOTH)
+  enabled       Boolean       @default(true)
+}
