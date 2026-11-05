@@ -4,6 +4,8 @@
  * Supports Syndication API / Nitter RSS / lightweight web parser
  */
 
+import { sanitizePostContent } from "@/lib/sanitizer";
+
 export interface IngestedTweet {
   id: string;
   username: string;
@@ -74,7 +76,7 @@ export async function scrapeTwitterAccount(
           const content = item?.content?.tweet;
           if (content && content.text) {
             const raw = content.text;
-            const cleaned = cleanTweetText(raw);
+            const cleaned = sanitizePostContent(raw);
             let mediaUrl: string | null = null;
             if (content.mediaDetails && content.mediaDetails.length > 0) {
               mediaUrl = content.mediaDetails[0].media_url_https || null;

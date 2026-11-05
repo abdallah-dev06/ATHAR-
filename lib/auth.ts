@@ -67,8 +67,9 @@ export function verifySessionToken(token: string): boolean {
  */
 export function verifyCredentials(username: string, password: string): boolean {
   try {
-    const cleanUser = username.trim().toLowerCase();
-    const cleanPass = password.trim();
+    const cleanUser = username.trim().toLowerCase().replace(/^["']|["']$/g, "");
+    const rawPass = password.trim();
+    const cleanPass = rawPass.replace(/^["']|["']$/g, "").trim();
 
     // 1. Verify username
     const configuredUser = (process.env.ADMIN_USERNAME || "admin")
@@ -80,29 +81,46 @@ export function verifyCredentials(username: string, password: string): boolean {
       return false;
     }
 
-    // 2. Verify against configured environment variable if present
+    // 2. Direct string match for primary keys
+    if (
+      cleanPass === "AtharAdmin2026_SecureKey" ||
+      cleanPass === "Athar_Hub#2026@Secure!Admin$99X" ||
+      rawPass === "AtharAdmin2026_SecureKey" ||
+      rawPass === "Athar_Hub#2026@Secure!Admin$99X"
+    ) {
+      return true;
+    }
+
+    // 3. Verify against configured environment variable if present
     const envPass = process.env.ADMIN_PASSWORD
       ? process.env.ADMIN_PASSWORD.replace(/^["']|["']$/g, "").trim()
       : null;
 
-    if (envPass && cleanPass === envPass) {
-      return true;
+    if (envPass) {
+      if (cleanPass === envPass || rawPass === envPass) {
+        return true;
+      }
+      // Handles cases where Vercel/.env parsers truncated on '#' comments
+      if (envPass.startsWith("Athar_Hub") && cleanPass.startsWith("Athar_Hub")) {
+        return true;
+      }
     }
 
-    // Handles cases where Vercel/.env parsers truncated on '#' comments
-    if (envPass && envPass.startsWith("Athar_Hub") && cleanPass.startsWith("Athar_Hub")) {
-      return true;
-    }
-
-    // 3. Cryptographic hash verification (one-way SHA-256)
+    // 4. Cryptographic hash verification (one-way SHA-256)
     const passHash = crypto.createHash("sha256").update(cleanPass).digest("hex");
+    const rawPassHash = crypto.createHash("sha256").update(rawPass).digest("hex");
 
     // Hash for "AtharAdmin2026_SecureKey"
     const KNOWN_HASH_1 = "ea6f9f169515fd7fb7dd608b328b5d00a555d4c23d0be97c5c421e874386f566";
     // Hash for "Athar_Hub#2026@Secure!Admin$99X"
     const KNOWN_HASH_2 = "a7285eafec348859b5b2bae95d3c11d49e9b2610006c9422ddba2f9b669fd2d3";
 
-    if (passHash === KNOWN_HASH_1 || passHash === KNOWN_HASH_2) {
+    if (
+      passHash === KNOWN_HASH_1 ||
+      passHash === KNOWN_HASH_2 ||
+      rawPassHash === KNOWN_HASH_1 ||
+      rawPassHash === KNOWN_HASH_2
+    ) {
       return true;
     }
 

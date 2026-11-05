@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { dispatchPost, ChannelTargetType } from "@/lib/telegram";
+import { sanitizePostContent } from "@/lib/sanitizer";
 import { fetchQuranAyah } from "@/lib/ingestion/quran";
 import { getRandomPoetryPiece } from "@/lib/ingestion/poetry";
 import { PostStatus, SourceType } from "@prisma/client";
@@ -151,9 +152,10 @@ async function handleCronDispatch(req: NextRequest) {
       postDbId = newPost.id;
     }
 
-    // 4. Dispatch via Telegram Bot Core
+    // 4. Dispatch via Telegram Bot Core (ensuring complete sanitization)
+    const sanitizedDispatchContent = sanitizePostContent(contentToDispatch);
     const dispatchResult = await dispatchPost({
-      content: contentToDispatch,
+      content: sanitizedDispatchContent,
       isAudio,
       mediaUrl,
       audioTitle,

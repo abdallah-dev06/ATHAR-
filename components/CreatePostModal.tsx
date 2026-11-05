@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { X, Sparkles, BookOpen, Scroll, Send, Check } from "lucide-react";
+import { X, Sparkles, BookOpen, Scroll, Send, Check, Wand2 } from "lucide-react";
 import { createManualPostAction } from "@/app/actions";
+import { sanitizePostContent } from "@/lib/sanitizer";
 import { fetchQuranAyah } from "@/lib/ingestion/quran";
 import { getRandomPoetryPiece } from "@/lib/ingestion/poetry";
 import { ChannelTarget, PostStatus } from "@prisma/client";
@@ -133,9 +134,20 @@ export default function CreatePostModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-xs font-medium text-slate-300 block mb-1.5">
-              نص المنشور (يدعم التنسيق والرموز التعبيرية):
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium text-slate-300 block">
+                نص المنشور (ترتيب آلي خالٍ من الروابط والبراويز):
+              </label>
+              <button
+                type="button"
+                onClick={() => setContent((prev) => sanitizePostContent(prev))}
+                className="text-[11px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold transition-colors"
+                title="إزالة الروابط، البراويز، وأي توقيع لمنصة أثر تلقائياً"
+              >
+                <Wand2 className="w-3 h-3" />
+                <span>تنظيف وترتيب تلقائي</span>
+              </button>
+            </div>
             <textarea
               required
               rows={6}

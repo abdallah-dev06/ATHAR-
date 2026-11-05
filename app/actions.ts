@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { dispatchPost, ChannelTargetType } from "@/lib/telegram";
+import { sanitizePostContent } from "@/lib/sanitizer";
 import { fetchQuranAyah } from "@/lib/ingestion/quran";
 import { getRandomPoetryPiece } from "@/lib/ingestion/poetry";
 import { scrapeTelegramChannel } from "@/lib/ingestion/telegram";
@@ -165,10 +166,11 @@ export async function editPostAction(
   }
 ) {
   try {
+    const cleanedContent = sanitizePostContent(data.content);
     await prisma.post.update({
       where: { id: postId },
       data: {
-        content: data.content,
+        content: cleanedContent,
         targetChannel: data.targetChannel,
         isAudio: data.isAudio ?? false,
         mediaUrl: data.mediaUrl || null,
@@ -198,9 +200,10 @@ export async function createManualPostAction(data: {
   status?: PostStatus;
 }) {
   try {
+    const cleanedContent = sanitizePostContent(data.content);
     await prisma.post.create({
       data: {
-        content: data.content,
+        content: cleanedContent,
         targetChannel: data.targetChannel,
         isAudio: !!data.isAudio,
         mediaUrl: data.mediaUrl || null,
@@ -297,7 +300,7 @@ export async function fetchFromSourceAction(sourceId: string) {
         const quranResult = await fetchQuranAyah();
         await prisma.post.create({
           data: {
-            content: quranResult.formattedPost,
+            content: sanitizePostContent(quranResult.formattedPost),
             mediaUrl: quranResult.audioUrl,
             isAudio: true,
             audioTitle: `سورة ${quranResult.surahName} [${quranResult.ayahNumberInSurah}]`,
@@ -315,7 +318,7 @@ export async function fetchFromSourceAction(sourceId: string) {
         const poem = getRandomPoetryPiece();
         await prisma.post.create({
           data: {
-            content: poem.formattedText,
+            content: sanitizePostContent(poem.formattedText),
             isAudio: false,
             status: PostStatus.DRAFT,
             targetChannel: source.targetChannel,
@@ -329,17 +332,20 @@ export async function fetchFromSourceAction(sourceId: string) {
       case SourceType.TELEGRAM_CHANNEL: {
         const posts = await scrapeTelegramChannel(source.handleOrUrl);
         for (const item of posts) {
-          await prisma.post.create({
-            data: {
-              content: item.text,
-              mediaUrl: item.mediaUrl,
-              isAudio: false,
-              status: PostStatus.DRAFT,
-              targetChannel: source.targetChannel,
-              sourceId: source.id,
-            },
-          });
-          createdCount++;
+          const cleanText = sanitizePostContent(item.text);
+          if (cleanText) {
+            await prisma.post.create({
+              data: {
+                content: cleanText,
+                mediaUrl: item.mediaUrl,
+                isAudio: false,
+                status: PostStatus.DRAFT,
+                targetChannel: source.targetChannel,
+                sourceId: source.id,
+              },
+            });
+            createdCount++;
+          }
         }
         break;
       }
@@ -347,17 +353,20 @@ export async function fetchFromSourceAction(sourceId: string) {
       case SourceType.TWITTER_ACCOUNT: {
         const tweets = await scrapeTwitterAccount(source.handleOrUrl);
         for (const tweet of tweets) {
-          await prisma.post.create({
-            data: {
-              content: `🐦 تغريدة من ${tweet.username}:\n\n${tweet.text}`,
-              mediaUrl: tweet.mediaUrl,
-              isAudio: false,
-              status: PostStatus.DRAFT,
-              targetChannel: source.targetChannel,
-              sourceId: source.id,
-            },
-          });
-          createdCount++;
+          const cleanTweet = sanitizePostContent(tweet.text);
+          if (cleanTweet) {
+            await prisma.post.create({
+              data: {
+                content: cleanTweet,
+                mediaUrl: tweet.mediaUrl,
+                isAudio: false,
+                status: PostStatus.DRAFT,
+                targetChannel: source.targetChannel,
+                sourceId: source.id,
+              },
+            });
+            createdCount++;
+          }
         }
         break;
       }
@@ -446,6 +455,38 @@ export async function deleteScheduleSlotAction(slotId: string) {
     });
     revalidatePath("/");
     return { success: true };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Bulk cleans and sanitizes all existing posts in DB
+ * Removes links, borders, frames, and Athar signatures from all drafts and approved posts.
+ */
+export async function sanitizeExistingPostsAction() {
+  try {
+    const posts = await prisma.post.findMany({
+      where: {
+        status: { in: [PostStatus.DRAFT, PostStatus.APPROVED, PostStatus.SCHEDULED] },
+      },
+    });
+
+    let cleanedCount = 0;
+    for (const post of posts) {
+      const sanitized = sanitizePostContent(post.content);
+      if (sanitized !== post.content) {
+        await prisma.post.update({
+          where: { id: post.id },
+          data: { content: sanitized },
+        });
+        cleanedCount++;
+      }
+    }
+
+    revalidatePath("/");
+    return { success: true, count: cleanedCount, total: posts.length };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     return { success: false, error: msg };

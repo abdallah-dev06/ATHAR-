@@ -27,12 +27,14 @@ import {
   Hash,
   Check,
   Bot,
+  Wand2,
 } from "lucide-react";
 import {
   fetchAllActiveSourcesAction,
   addSourceAction,
   addScheduleSlotAction,
   createManualPostAction,
+  sanitizeExistingPostsAction,
   logoutAction,
 } from "@/app/actions";
 import { LogOut } from "lucide-react";
@@ -118,6 +120,7 @@ export default function DashboardClient({
   // Global action indicators
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFetchingAll, setIsFetchingAll] = useState(false);
+  const [isSanitizingAll, setIsSanitizingAll] = useState(false);
   const [isTestingCron, setIsTestingCron] = useState(false);
   const [generatingQuick, setGeneratingQuick] = useState<string | null>(null);
 
@@ -135,6 +138,26 @@ export default function DashboardClient({
     setIsRefreshing(true);
     router.refresh();
     setTimeout(() => setIsRefreshing(false), 800);
+  };
+
+  const handleSanitizeAll = async () => {
+    setIsSanitizingAll(true);
+    try {
+      const res = await sanitizeExistingPostsAction();
+      if (res.success) {
+        showBanner(
+          "success",
+          `تم تنظيف وترتيب المنشورات تلقائياً: تم فحص ${res.total} منشور، وتنظيف ${res.count} منشور وإزالة كافة الروابط والبراويز وتوقيع أثر.`
+        );
+        router.refresh();
+      } else {
+        showBanner("error", res.error || "فشل تنظيف المنشورات");
+      }
+    } catch {
+      showBanner("error", "حدث خطأ أثناء تنظيف المنشورات");
+    } finally {
+      setIsSanitizingAll(false);
+    }
   };
 
   const handleQuickAddSource = async (e: React.FormEvent) => {
@@ -548,7 +571,18 @@ export default function DashboardClient({
         </div>
 
         {/* Global Action Button */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={handleSanitizeAll}
+            disabled={isSanitizingAll}
+            className="px-3.5 py-2.5 rounded-2xl text-xs font-bold glass-panel text-emerald-300 hover:text-emerald-200 hover:border-emerald-500/50 transition-all flex items-center gap-2 disabled:opacity-50"
+            title="تنظيف وترتيب جميع المنشورات وإزالة الروابط والبراويز وشعار أثر تلقائياً"
+          >
+            <Wand2 className={`w-4 h-4 ${isSanitizingAll ? "animate-spin text-emerald-400" : ""}`} />
+            <span>{isSanitizingAll ? "جاري التنظيف والترتيب..." : "ترتيب وتنظيف المنشورات تلقائياً"}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsCreatePostOpen(true)}

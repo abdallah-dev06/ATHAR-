@@ -4,6 +4,8 @@
  * Extracts cleaned text, formatted quotes, and attached media assets.
  */
 
+import { sanitizePostContent } from "@/lib/sanitizer";
+
 export interface IngestedTelegramPost {
   externalId: string;
   channel: string;
@@ -75,11 +77,7 @@ export async function scrapeTelegramChannel(
 
       let text = "";
       if (textMatch) {
-        text = textMatch[1]
-          .replace(/<br\s*\/?>/gi, "\n")
-          .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "$2 ($1)")
-          .replace(/<\/?[^>]+(>|$)/g, "")
-          .trim();
+        text = sanitizePostContent(textMatch[1]);
       }
 
       // Extract photo/video thumbnail if available

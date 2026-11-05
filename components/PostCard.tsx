@@ -18,7 +18,9 @@ import {
   Check,
   ChevronDown,
   Sparkles,
+  Wand2,
 } from "lucide-react";
+import { sanitizePostContent } from "@/lib/sanitizer";
 import {
   publishPostNowAction,
   approvePostAction,
@@ -269,6 +271,18 @@ export default function PostCard({ post, onRefresh }: PostCardProps) {
       {/* Main Content View or Inline Edit Mode */}
       {isEditing ? (
         <div className="space-y-3 mb-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-300">تعديل نص المنشور:</span>
+            <button
+              type="button"
+              onClick={() => setContent((prev) => sanitizePostContent(prev))}
+              className="text-[11px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold transition-colors"
+              title="إزالة الروابط والبراويز وشعار أثر تلقائياً"
+            >
+              <Wand2 className="w-3 h-3" />
+              <span>تنظيف وترتيب تلقائي</span>
+            </button>
+          </div>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}

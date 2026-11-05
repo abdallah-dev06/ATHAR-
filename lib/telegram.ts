@@ -4,6 +4,8 @@
  * Handles both native MP3 audio broadcasting (`sendAudio`) and rich HTML text (`sendMessage`).
  */
 
+import { sanitizePostContent } from "@/lib/sanitizer";
+
 export type ChannelTargetType = "NATHARAT" | "NASMAT" | "BOTH";
 
 export interface TelegramDispatchPayload {
@@ -46,20 +48,18 @@ export function resolveTargetChannels(target: ChannelTargetType): string[] {
 }
 
 /**
- * Format Arabic and classical text for Telegram HTML parse mode
+ * Format Arabic and classical text for Telegram HTML parse mode.
+ * Automatically sanitizes text by removing links, frames, borders, and Athar signatures.
  */
 export function formatTelegramHtml(text: string, sourceName?: string): string {
   if (!text) return "";
 
-  let formatted = text.trim();
+  let formatted = sanitizePostContent(text);
 
-  // If source tag is present, append a clean footer
-  if (sourceName) {
-    formatted += `\n\n— <b>المصدر:</b> <i>${sourceName}</i>`;
+  // If source tag is present and not Athar branding, append source
+  if (sourceName && !/أثر|athar/i.test(sourceName)) {
+    formatted += `\n\n— <i>${sourceName}</i>`;
   }
-
-  // Athar footer signature
-  formatted += `\n\n┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n✨ <b>مَنَصَّة أَثَر | Athar Hub</b>`;
 
   return formatted;
 }
