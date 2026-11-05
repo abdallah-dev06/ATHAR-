@@ -492,3 +492,24 @@ export async function sanitizeExistingPostsAction() {
     return { success: false, error: msg };
   }
 }
+
+/**
+ * Manually triggers the cron scheduler check from the Dashboard
+ */
+export async function triggerCronDispatchAction(force = false) {
+  try {
+    const { POST } = await import("@/app/api/cron/dispatch/route");
+    const dummyReq = new Request(
+      `http://localhost/api/cron/dispatch?secret=athar_hub_cron_secret_key${
+        force ? "&force=true" : ""
+      }`
+    );
+    const res = await POST(dummyReq as any);
+    const data = await res.json();
+    revalidatePath("/");
+    return { success: true, data };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: msg };
+  }
+}
